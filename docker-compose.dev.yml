@@ -1,0 +1,18 @@
+version: "3.9"
+
+# Development: only runs PostgreSQL, Next.js runs locally with `npm run dev`
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ansible_gui
+    volumes:
+      - postgres_data_dev:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data_dev:

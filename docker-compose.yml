@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-sculptops}
+    volumes:
+      - postgres_data_v2:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-sculptops}
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
+      AUTH_URL: ${AUTH_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${AUTH_URL:-http://localhost:3000}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Set ENCRYPTION_KEY in .env}
+      ANSIBLE_DOCKER_IMAGE: ${ANSIBLE_DOCKER_IMAGE:-cytopia/ansible:latest}
+      ANSIBLE_DOCKER_NETWORK: ${ANSIBLE_DOCKER_NETWORK:-bridge}
+      # Community library (optional) — left empty if unset, feature stays disabled
+      COMMUNITY_API_URL: ${COMMUNITY_API_URL:-}
+      COMMUNITY_SUBMIT_KEY: ${COMMUNITY_SUBMIT_KEY:-}
+    volumes:
+      # Mount Docker socket so the app can spawn Ansible containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Share host /tmp so sibling ansible containers can access workspace files
+      - /tmp:/tmp
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data_v2:

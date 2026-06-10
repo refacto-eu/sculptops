@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Semantic color tokens ─────────────────────────────────────────────────
+   Components should use these via the custom Tailwind classes defined in
+   tailwind.config.ts (bg-page, bg-card, bg-input, text-primary, etc.).
+   Swap the values here to change the entire theme — no component edits needed.
+──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Light theme */
+  --color-bg:        255 255 255;   /* bg-page   */
+  --color-card:      248 250 252;   /* bg-card   (slate-50) */
+  --color-input:     241 245 249;   /* bg-input  (slate-100) */
+  --color-border:    226 232 240;   /* border-base (slate-200) */
+  --color-border-2:  203 213 225;   /* border-strong (slate-300) */
+  --color-text-1:    15  23  42;    /* text-primary  (slate-900) */
+  --color-text-2:    71  85  105;   /* text-secondary (slate-600) */
+  --color-text-3:    100 116 139;   /* text-muted (slate-500) */
+  --color-text-4:    148 163 184;   /* text-subtle (slate-400) */
+}
+
+.dark {
+  --color-bg:        9   9   11;    /* zinc-950 */
+  --color-card:      24  24  27;    /* zinc-900 */
+  --color-input:     39  39  42;    /* zinc-800 */
+  --color-border:    39  39  42;    /* zinc-800 */
+  --color-border-2:  63  63  70;    /* zinc-700 */
+  --color-text-1:    255 255 255;
+  --color-text-2:    212 212 216;   /* zinc-300 */
+  --color-text-3:    161 161 170;   /* zinc-400 */
+  --color-text-4:    113 113 122;   /* zinc-500 */
+}
+
+body {
+  background-color: rgb(var(--color-bg));
+  color: rgb(var(--color-text-1));
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+/* ── Button utility classes ────────────────────────────────────────────────
+   Use these on HeroUI <Button> via className to guarantee visible appearance
+   regardless of theme / HeroUI color overrides.
+──────────────────────────────────────────────────────────────────────────── */
+
+.btn-primary {
+  @apply !bg-emerald-500 hover:!bg-emerald-600 active:!bg-emerald-700 !text-white !border-transparent !font-semibold transition-colors !duration-150;
+}
+.btn-danger-outline {
+  @apply !bg-transparent hover:!bg-red-500/10 !border !border-red-500/50 hover:!border-red-400 !text-red-400 !font-semibold transition-colors !duration-150;
+}
+.btn-secondary-outline {
+  @apply !bg-transparent hover:!bg-zinc-500/15 !border !border-border-base hover:!border-border-strong !text-th-secondary hover:!text-th-primary !font-semibold transition-colors !duration-150;
+  /* Restore disabled appearance overridden by !important above */
+  &[data-disabled=true] {
+    @apply !opacity-40 !cursor-not-allowed hover:!bg-transparent hover:!border-border-base hover:!text-th-secondary;
+  }
+}
+
+/* ── HeroUI tooltip override ───────────────────────────────────────────────
+   HeroUI v2 renders tooltip content with data-slot="content" + role="tooltip".
+   Targeting both prevents this rule from affecting other popover/select content.
+──────────────────────────────────────────────────────────────────────────── */
+[data-slot="content"][role="tooltip"] {
+  @apply !bg-zinc-800 !text-zinc-100 !border !border-zinc-700 !shadow-lg !rounded-lg;
+}
+
+/* ── HeroUI table alignment ────────────────────────────────────────────────
+   HeroUI v2 renders data-slot="th" / data-slot="td" directly on the
+   <th>/<td> elements (no wrapper). Force identical horizontal padding and
+   left-aligned text so headers always sit directly above their cell data.
+──────────────────────────────────────────────────────────────────────────── */
+[data-slot="th"],
+[data-slot="td"] {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  text-align: left !important;
+  vertical-align: middle !important;
+}
+
+/* Log output styles */
+.log-output {
+  font-family: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
