@@ -21,8 +21,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/refacto-eu/sculptops/actions/workflows/ci.yml">
-    <img alt="CI" src="https://github.com/refacto-eu/sculptops/actions/workflows/ci.yml/badge.svg" />
+  <a href="https://github.com/refacto-eu/sculptops/actions/workflows/ci.yml?query=branch%3Amain">
+    <img alt="CI" src="https://github.com/refacto-eu/sculptops/actions/workflows/ci.yml/badge.svg?branch=main" />
   </a>
   <a href="./LICENSE">
     <img alt="License: AGPL-3.0" src="https://img.shields.io/badge/license-AGPL--3.0-blue" />
