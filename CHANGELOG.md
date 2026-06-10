@@ -4,7 +4,7 @@ All notable changes to SculptOps are documented here.
 
 ---
 
-## [0.1.0] — 2026-06-03
+## [0.1.0] — 2026-06-10
 
 First public release.
 
