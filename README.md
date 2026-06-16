@@ -18,6 +18,8 @@
   <a href="./CHANGELOG.md">Changelog</a>
   &middot;
   <a href="./.github/SECURITY.md">Security</a>
+  &middot;
+  <a href="https://buymeacoffee.com/Refacto">Buy Me a Coffee</a>
 </p>
 
 <p align="center">
