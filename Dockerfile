@@ -24,9 +24,7 @@ ENV NODE_ENV=production
 
 RUN apk add --no-cache openssh-client docker-cli && \
     addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs && \
-    addgroup -g 987 dockersock && \
-    adduser nextjs dockersock
+    adduser --system --uid 1001 nextjs
 
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./

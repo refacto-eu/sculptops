@@ -4,7 +4,8 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { servers, sshKeys } from "@/lib/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import { getCurrentOrg, requireWrite } from "@/lib/get-org";import { writeAuditLog, getClientIp } from "@/lib/audit";
+import { getCurrentOrg, requireWrite } from "@/lib/get-org";
+import { writeAuditLog, getClientIp } from "@/lib/audit";
 
 const createServerSchema = z.object({
   name: z.string().min(1).max(255),
@@ -56,5 +57,10 @@ export async function POST(req: NextRequest) {
 
   await writeAuditLog({ organizationId: ctx.org.id, userId: ctx.userId, action: "created", resourceType: "server", resourceId: server.id, resourceName: server.name, metadata: { host: server.host, port: server.port, username: server.username }, ipAddress: getClientIp(req) });
 
-  return NextResponse.json(server, { status: 201 });
+  const created = await db.query.servers.findFirst({
+    where: eq(servers.id, server.id),
+    with: { sshKey: { columns: { id: true, name: true } } },
+  });
+
+  return NextResponse.json(created ?? server, { status: 201 });
 }

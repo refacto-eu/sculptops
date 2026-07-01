@@ -25,6 +25,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    group_add:
+      - "${DOCKER_GID:-986}"
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-sculptops}
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}

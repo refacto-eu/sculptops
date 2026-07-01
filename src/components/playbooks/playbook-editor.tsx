@@ -39,6 +39,7 @@ const MonacoDiffEditor = dynamic(
 );
 
 interface RefItem { id: string; name: string }
+interface ServerRef { id: string; name: string; host: string }
 
 interface VersionItem {
   id: string;
@@ -53,6 +54,7 @@ interface Props {
   playbook: SafePlaybook;
   versions: VersionItem[];
   inventories: RefItem[];
+  servers: ServerRef[];
   vaultPasswords: RefItem[];
   canRun: boolean;
 }
@@ -60,7 +62,7 @@ interface Props {
 const MAX_TAGS    = 30;
 const MAX_TAG_LEN = 256;
 
-export function PlaybookEditor({ playbook, versions, inventories, vaultPasswords, canRun }: Props) {
+export function PlaybookEditor({ playbook, versions, inventories, servers, vaultPasswords, canRun }: Props) {
   const router = useRouter();
   const [name,        setName]        = useState(playbook.name);
   const [editingName, setEditingName] = useState(false);
@@ -91,21 +93,25 @@ export function PlaybookEditor({ playbook, versions, inventories, vaultPasswords
 
   // Run modal state
   const [isRunOpen, setIsRunOpen] = useState(false);
-  const [runForm, setRunForm] = useState({ inventoryId: "", dryRun: false, tags: "", limitHosts: "", vaultPasswordId: "" });
+  const [runForm, setRunForm] = useState({ targetMode: "inventory" as "inventory" | "server", inventoryId: "", serverId: "", dryRun: false, tags: "", limitHosts: "", vaultPasswordId: "" });
   const [runExtraVars, setRunExtraVars] = useState<{ key: string; value: string }[]>([]);
   const [running, setRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
 
   async function handleRun() {
-    if (!runForm.inventoryId) return;
+    if (runForm.targetMode === "inventory" && !runForm.inventoryId) return;
+    if (runForm.targetMode === "server" && !runForm.serverId) return;
     setRunning(true);
     setRunError(null);
+    const target = runForm.targetMode === "inventory"
+      ? { inventoryId: runForm.inventoryId }
+      : { serverId: runForm.serverId };
     const res = await fetch("/api/executions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         playbookId: playbook.id,
-        inventoryId: runForm.inventoryId,
+        ...target,
         options: {
           dryRun: runForm.dryRun,
           tags: runForm.tags ? runForm.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
@@ -418,7 +424,7 @@ export function PlaybookEditor({ playbook, versions, inventories, vaultPasswords
             <Button
               color="success"
               isLoading={running}
-              isDisabled={!runForm.inventoryId}
+              isDisabled={runForm.targetMode === "inventory" ? !runForm.inventoryId : !runForm.serverId}
               startContent={<Play className="h-4 w-4 fill-white" />}
               onPress={handleRun}
             >
@@ -428,16 +434,44 @@ export function PlaybookEditor({ playbook, versions, inventories, vaultPasswords
         }
       >
         <div className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-th-secondary">Inventory *</label>
-            <select
-              value={runForm.inventoryId}
-              onChange={e => setRunForm(f => ({ ...f, inventoryId: e.target.value }))}
-              className="w-full rounded-lg bg-input border border-border-base px-3 py-2 text-sm text-th-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors"
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-input p-1">
+            <button
+              type="button"
+              onClick={() => setRunForm(f => ({ ...f, targetMode: "inventory" }))}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${runForm.targetMode === "inventory" ? "bg-card text-th-primary shadow-sm" : "text-th-muted hover:text-th-primary"}`}
             >
-              <option value="">Select an inventory</option>
-              {inventories.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
+              Inventory
+            </button>
+            <button
+              type="button"
+              onClick={() => setRunForm(f => ({ ...f, targetMode: "server" }))}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${runForm.targetMode === "server" ? "bg-card text-th-primary shadow-sm" : "text-th-muted hover:text-th-primary"}`}
+            >
+              Server
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-th-secondary">{runForm.targetMode === "inventory" ? "Inventory *" : "Server *"}</label>
+            {runForm.targetMode === "inventory" ? (
+              <select
+                value={runForm.inventoryId}
+                onChange={e => setRunForm(f => ({ ...f, inventoryId: e.target.value }))}
+                className="w-full rounded-lg bg-input border border-border-base px-3 py-2 text-sm text-th-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors"
+              >
+                <option value="">Select an inventory</option>
+                {inventories.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            ) : (
+              <select
+                value={runForm.serverId}
+                onChange={e => setRunForm(f => ({ ...f, serverId: e.target.value }))}
+                className="w-full rounded-lg bg-input border border-border-base px-3 py-2 text-sm text-th-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors"
+              >
+                <option value="">Select a server</option>
+                {servers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.host})</option>)}
+              </select>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-th-secondary">Tags (comma-separated)</label>

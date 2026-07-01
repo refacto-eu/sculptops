@@ -96,12 +96,12 @@ export async function executePlaybook(
     const sshKeyDir = join(workDir, "keys");
     await mkdir(sshKeyDir, { recursive: true });
 
-    await writeFile(playbookPath, ctx.playbook.content, { mode: 0o600 });
-    await writeFile(inventoryPath, buildInventoryContent(ctx), { mode: 0o600 });
+    await writeFile(playbookPath, ctx.playbook.content, { mode: 0o644 });
+    await writeFile(inventoryPath, buildInventoryContent(ctx), { mode: 0o644 });
 
     for (const key of ctx.sshKeys) {
       const keyPath = join(sshKeyDir, `${key.id}.pem`);
-      await writeFile(keyPath, normalizePrivateKey(decrypt(key.encryptedPrivateKey, key.iv, key.authTag)), { mode: 0o600 });
+      await writeFile(keyPath, normalizePrivateKey(decrypt(key.encryptedPrivateKey, key.iv, key.authTag)), { mode: 0o644 });
     }
 
     const options = ctx.execution.options as {
@@ -140,13 +140,13 @@ export async function executePlaybook(
       if (Object.keys(filtered).length > 0) {
         // Write as JSON file — avoids all quoting/escaping issues with spaces and special chars
         const extraVarsPath = join(workDir, "extra_vars.json");
-        await writeFile(extraVarsPath, JSON.stringify(filtered), { mode: 0o600 });
+        await writeFile(extraVarsPath, JSON.stringify(filtered), { mode: 0o644 });
         ansibleArgs.push("--extra-vars", "@/workspace/extra_vars.json");
       }
     }
     if (ctx.vaultPassword) {
       const vaultPassPath = join(workDir, ".vault_pass");
-      await writeFile(vaultPassPath, ctx.vaultPassword, { mode: 0o600 });
+      await writeFile(vaultPassPath, ctx.vaultPassword, { mode: 0o644 });
       ansibleArgs.push("--vault-password-file", "/workspace/.vault_pass");
     }
 
@@ -160,6 +160,7 @@ export async function executePlaybook(
     const dockerArgs = [
       "run",
       "--name", containerName,
+      "--user", "0:0",
       "--network", dockerNetwork,
       "--cap-drop=ALL",
       "--security-opt", "no-new-privileges",

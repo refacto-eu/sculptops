@@ -19,9 +19,11 @@ import { formatDate } from "@/lib/utils";
 
 interface PlaybookItem { id: string; name: string; description: string | null; content: string; tags: string[]; gitRepo: string | null; updatedAt: Date; createdAt: Date; communitySourceId: string | null; communitySourceName: string | null; communityAuthorName: string | null; createdBy: string | null; creatorName: string | null; hasGitToken: boolean; }
 interface RefItem { id: string; name: string }
+interface ServerRef { id: string; name: string; host: string }
 interface Props {
   initialPlaybooks: PlaybookItem[];
   inventories: RefItem[];
+  servers: ServerRef[];
   vaultPasswords: RefItem[];
   role: "admin" | "member" | "viewer";
   activeTab: "mine" | "community";
@@ -30,7 +32,7 @@ interface Props {
   currentUserId: string;
 }
 
-const defaultRunForm = { inventoryId: "", dryRun: false, tags: "", limitHosts: "", vaultPasswordId: "" };
+const defaultRunForm = { targetMode: "inventory" as "inventory" | "server", inventoryId: "", serverId: "", dryRun: false, tags: "", limitHosts: "", vaultPasswordId: "" };
 
 const DEFAULT_PLAYBOOK = `---
 - name: Example Playbook
@@ -51,7 +53,7 @@ const DEFAULT_PLAYBOOK = `---
 
 const defaultGitForm = { name: "", repoUrl: "", branch: "main", filePath: "", token: "" };
 
-export function PlaybooksClient({ initialPlaybooks, inventories, vaultPasswords, role, activeTab, communityData, communityParams, currentUserId }: Props) {
+export function PlaybooksClient({ initialPlaybooks, inventories, servers, vaultPasswords, role, activeTab, communityData, communityParams, currentUserId }: Props) {
   const canWrite = role !== "viewer";
   const router = useRouter();
   const [tab, setTab] = useState<"mine" | "community">(activeTab);
@@ -87,15 +89,20 @@ export function PlaybooksClient({ initialPlaybooks, inventories, vaultPasswords,
   }
 
   async function handleRun() {
-    if (!runPlaybook || !runForm.inventoryId) return;
+    if (!runPlaybook) return;
+    if (runForm.targetMode === "inventory" && !runForm.inventoryId) return;
+    if (runForm.targetMode === "server" && !runForm.serverId) return;
     setRunLoading(true);
     setRunError(null);
+    const target = runForm.targetMode === "inventory"
+      ? { inventoryId: runForm.inventoryId }
+      : { serverId: runForm.serverId };
     const res = await fetch("/api/executions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         playbookId: runPlaybook.id,
-        inventoryId: runForm.inventoryId,
+        ...target,
         options: {
           dryRun: runForm.dryRun,
           tags: runForm.tags ? runForm.tags.split(",").map(t => t.trim()).filter(Boolean) : [],
@@ -438,7 +445,7 @@ export function PlaybooksClient({ initialPlaybooks, inventories, vaultPasswords,
             <Button
               color="success"
               isLoading={runLoading}
-              isDisabled={!runForm.inventoryId}
+              isDisabled={runForm.targetMode === "inventory" ? !runForm.inventoryId : !runForm.serverId}
               startContent={<Play className="h-4 w-4 fill-white" />}
               onPress={handleRun}
             >
@@ -448,16 +455,44 @@ export function PlaybooksClient({ initialPlaybooks, inventories, vaultPasswords,
         }
       >
         <div className="space-y-4">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-th-secondary">Inventory *</label>
-            <select
-              value={runForm.inventoryId}
-              onChange={e => setRunForm(f => ({ ...f, inventoryId: e.target.value }))}
-              className="w-full rounded-lg bg-input border border-border-base px-3 py-2 text-sm text-th-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors"
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-input p-1">
+            <button
+              type="button"
+              onClick={() => setRunForm(f => ({ ...f, targetMode: "inventory" }))}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${runForm.targetMode === "inventory" ? "bg-card text-th-primary shadow-sm" : "text-th-muted hover:text-th-primary"}`}
             >
-              <option value="">Select an inventory</option>
-              {inventories.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
+              Inventory
+            </button>
+            <button
+              type="button"
+              onClick={() => setRunForm(f => ({ ...f, targetMode: "server" }))}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${runForm.targetMode === "server" ? "bg-card text-th-primary shadow-sm" : "text-th-muted hover:text-th-primary"}`}
+            >
+              Server
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-th-secondary">{runForm.targetMode === "inventory" ? "Inventory *" : "Server *"}</label>
+            {runForm.targetMode === "inventory" ? (
+              <select
+                value={runForm.inventoryId}
+                onChange={e => setRunForm(f => ({ ...f, inventoryId: e.target.value }))}
+                className="w-full rounded-lg bg-input border border-border-base px-3 py-2 text-sm text-th-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors"
+              >
+                <option value="">Select an inventory</option>
+                {inventories.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            ) : (
+              <select
+                value={runForm.serverId}
+                onChange={e => setRunForm(f => ({ ...f, serverId: e.target.value }))}
+                className="w-full rounded-lg bg-input border border-border-base px-3 py-2 text-sm text-th-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors"
+              >
+                <option value="">Select a server</option>
+                {servers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.host})</option>)}
+              </select>
+            )}
           </div>
           {vaultPasswords.length > 0 && (
             <div className="flex flex-col gap-1.5">

@@ -4,6 +4,21 @@ All notable changes to SculptOps are documented here.
 
 ---
 
+## [0.1.1] - 2026-07-01
+
+### Added
+
+- Run playbooks directly against a single server, in addition to inventory-based runs.
+- Added the Inventory / Server target selector to Playbooks, Playbook editor, and Executions run flows.
+- Execution history now displays a generic target column so direct server runs are readable.
+
+### Fixed
+
+- Docker socket access in Compose now uses configurable `DOCKER_GID` instead of a hardcoded image group.
+- Generated workspace files (playbook, inventory, extra vars, vault password, SSH keys) are now world-readable so the hardened execution container (running with all capabilities dropped) can read them, fixing `Permission denied` errors during playbook runs.
+- Newly created or updated servers now immediately show the selected SSH key without requiring a page refresh.
+
+---
 ## [0.1.0] — 2026-06-10
 
 First public release.

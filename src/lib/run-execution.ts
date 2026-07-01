@@ -2,7 +2,7 @@ import type { ExecutionContext } from "@/lib/ansible";
 
 export async function runExecution(executionId: string) {
   const { db: database } = await import("@/lib/db");
-  const { executions: executionsTable, executionLogs, playbooks, inventories, sshKeys, vaultPasswords } = await import("@/lib/db/schema");
+  const { executions: executionsTable, executionLogs, playbooks, inventories, servers, sshKeys, vaultPasswords } = await import("@/lib/db/schema");
   const { sendExecutionNotification } = await import("@/lib/notify");
   const { eq, and, inArray } = await import("drizzle-orm");
   const { decrypt } = await import("@/lib/crypto");
@@ -23,29 +23,56 @@ export async function runExecution(executionId: string) {
   let playbookName = "Unknown";
 
   try {
-    const [playbook, inventory] = await Promise.all([
+    const opts = execution.options as { vaultPasswordId?: string; targetServerId?: string } & typeof execution.options;
+
+    const [playbook, inventory, directServer] = await Promise.all([
       database.query.playbooks.findFirst({
         where: and(eq(playbooks.id, execution.playbookId!), eq(playbooks.organizationId, execution.organizationId)),
       }),
-      database.query.inventories.findFirst({
-        where: and(eq(inventories.id, execution.inventoryId!), eq(inventories.organizationId, execution.organizationId)),
-        with: { groups: { with: { hosts: { with: { server: { with: { sshKey: true } } } } } } },
-      }),
+      execution.inventoryId
+        ? database.query.inventories.findFirst({
+            where: and(eq(inventories.id, execution.inventoryId), eq(inventories.organizationId, execution.organizationId)),
+            with: { groups: { with: { hosts: { with: { server: { with: { sshKey: true } } } } } } },
+          })
+        : Promise.resolve(null),
+      opts.targetServerId
+        ? database.query.servers.findFirst({
+            where: and(eq(servers.id, opts.targetServerId), eq(servers.organizationId, execution.organizationId)),
+            with: { sshKey: true },
+          })
+        : Promise.resolve(null),
     ]);
 
-    if (!playbook || !inventory) throw new Error("Playbook or inventory not found");
+    if (!playbook || (!inventory && !directServer)) throw new Error("Playbook target not found");
     playbookName = playbook.name;
 
-    for (const group of inventory.groups) {
+    const targetInventory = inventory ?? {
+      id: `server-${directServer!.id}`,
+      organizationId: execution.organizationId,
+      name: directServer!.name,
+      description: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      groups: [{
+        name: "direct",
+        variables: {},
+        hosts: [{
+          server: directServer!,
+          variables: {},
+        }],
+      }],
+    };
+
+    for (const group of targetInventory.groups) {
       for (const host of group.hosts) {
         if (host.server.organizationId !== execution.organizationId) {
-          throw new Error("Inventory contains a server outside this organization");
+          throw new Error("Execution target contains a server outside this organization");
         }
       }
     }
 
     const uniqueKeyIds = new Set<string>();
-    for (const group of inventory.groups) {
+    for (const group of targetInventory.groups) {
       for (const host of group.hosts) {
         if (host.server.sshKeyId) uniqueKeyIds.add(host.server.sshKeyId);
       }
@@ -60,7 +87,6 @@ export async function runExecution(executionId: string) {
         })
       : [];
 
-    const opts = execution.options as { vaultPasswordId?: string } & typeof execution.options;
     let vaultPasswordStr: string | undefined;
     if (opts.vaultPasswordId) {
       const vaultPwd = await database.query.vaultPasswords.findFirst({
@@ -75,7 +101,7 @@ export async function runExecution(executionId: string) {
     }
 
     const result = await executePlaybook(
-      { execution, playbook, inventory: inventory as ExecutionContext["inventory"], sshKeys: sshKeyList, vaultPassword: vaultPasswordStr },
+      { execution, playbook, inventory: targetInventory as ExecutionContext["inventory"], sshKeys: sshKeyList, vaultPassword: vaultPasswordStr },
       async (message, level = "info") => {
         await database.insert(executionLogs).values({
           executionId,

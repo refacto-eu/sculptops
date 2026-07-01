@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/lib/session";
 import { db } from "@/lib/db";
-import { playbooks, inventories, vaultPasswords, users } from "@/lib/db/schema";
+import { playbooks, inventories, servers, vaultPasswords, users } from "@/lib/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { PageHeader } from "@/components/ui/page-header";
 import { PlaybooksClient } from "@/components/playbooks/playbooks-client";
@@ -32,7 +32,7 @@ export default async function PlaybooksPage({ searchParams }: Props) {
     columns: { name: true, email: true },
   });
 
-  const [playbookList, inventoryList, vaultList] = await Promise.all([
+  const [playbookList, inventoryList, serverList, vaultList] = await Promise.all([
     db.query.playbooks.findMany({
       where: eq(playbooks.organizationId, ctx.org.id),
       orderBy: [desc(playbooks.updatedAt)],
@@ -41,6 +41,9 @@ export default async function PlaybooksPage({ searchParams }: Props) {
     db.select({ id: inventories.id, name: inventories.name })
       .from(inventories)
       .where(eq(inventories.organizationId, ctx.org.id)),
+    db.select({ id: servers.id, name: servers.name, host: servers.host })
+      .from(servers)
+      .where(eq(servers.organizationId, ctx.org.id)),
     db.select({ id: vaultPasswords.id, name: vaultPasswords.name })
       .from(vaultPasswords)
       .where(eq(vaultPasswords.organizationId, ctx.org.id)),
@@ -73,6 +76,7 @@ export default async function PlaybooksPage({ searchParams }: Props) {
       <PlaybooksClient
         initialPlaybooks={normalized}
         inventories={inventoryList}
+        servers={serverList}
         vaultPasswords={vaultList}
         role={ctx.role as "admin" | "member" | "viewer"}
         currentUserId={ctx.userId}

@@ -28,6 +28,7 @@ export const executions = pgTable("executions", {
       limitHosts?: string;
       extraVars?: Record<string, string>;
       vaultPasswordId?: string;
+      targetServerId?: string;
     }>()
     .default({}),
   startedAt: timestamp("started_at"),

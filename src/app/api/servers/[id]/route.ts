@@ -66,7 +66,13 @@ export async function PATCH(
 
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await writeAuditLog({ organizationId: ctx.org.id, userId: ctx.userId, action: "updated", resourceType: "server", resourceId: updated.id, resourceName: updated.name, metadata: { host: updated.host, port: updated.port }, ipAddress: getClientIp(req) });
-  return NextResponse.json(updated);
+
+  const enriched = await db.query.servers.findFirst({
+    where: eq(servers.id, updated.id),
+    with: { sshKey: { columns: { id: true, name: true } } },
+  });
+
+  return NextResponse.json(enriched ?? updated);
 }
 
 export async function DELETE(

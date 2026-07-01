@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { getAuthContext } from "@/lib/session";
 import { db } from "@/lib/db";
-import { playbooks, playbookVersions, inventories, vaultPasswords } from "@/lib/db/schema";
+import { playbooks, playbookVersions, inventories, servers, vaultPasswords } from "@/lib/db/schema";
 import { eq, and, desc, asc } from "drizzle-orm";
 import { PlaybookEditor } from "@/components/playbooks/playbook-editor";
 import { safePlaybook } from "@/lib/playbook-response";
@@ -20,7 +20,7 @@ export default async function PlaybookDetailPage({
   });
   if (!playbook) notFound();
 
-  const [versions, inventoryList, vaultList] = await Promise.all([
+  const [versions, inventoryList, serverList, vaultList] = await Promise.all([
     db.query.playbookVersions.findMany({
       where: eq(playbookVersions.playbookId, id),
       orderBy: [desc(playbookVersions.version)],
@@ -31,6 +31,10 @@ export default async function PlaybookDetailPage({
       .from(inventories)
       .where(eq(inventories.organizationId, ctx.org.id))
       .orderBy(asc(inventories.name)),
+    db.select({ id: servers.id, name: servers.name, host: servers.host })
+      .from(servers)
+      .where(eq(servers.organizationId, ctx.org.id))
+      .orderBy(asc(servers.name)),
     db
       .select({ id: vaultPasswords.id, name: vaultPasswords.name })
       .from(vaultPasswords)
@@ -42,6 +46,7 @@ export default async function PlaybookDetailPage({
       playbook={safePlaybook(playbook)}
       versions={versions}
       inventories={inventoryList}
+      servers={serverList}
       vaultPasswords={vaultList}
       canRun={ctx.role !== "viewer"}
     />

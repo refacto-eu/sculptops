@@ -14,17 +14,18 @@ import { formatDate } from "@/lib/utils";
 import { LogViewer } from "./log-viewer";
 
 interface RefItem { id: string; name: string }
+interface ServerRef { id: string; name: string; host: string }
 interface ExecutionItem {
   id: string; status: string;
-  options: { dryRun?: boolean; tags?: string[]; limitHosts?: string; extraVars?: Record<string, string>; vaultPasswordId?: string };
+  options: { dryRun?: boolean; tags?: string[]; limitHosts?: string; extraVars?: Record<string, string>; vaultPasswordId?: string; targetServerId?: string };
   startedAt: Date | null; finishedAt: Date | null; createdAt: Date;
   playbook: RefItem | null; inventory: RefItem | null;
 }
 const PAGE_SIZE = 25;
 
-interface Props { initialExecutions: ExecutionItem[]; initialTotal: number; playbooks: RefItem[]; inventories: RefItem[]; vaultPasswords: RefItem[]; role: "admin" | "member" | "viewer" }
+interface Props { initialExecutions: ExecutionItem[]; initialTotal: number; playbooks: RefItem[]; inventories: RefItem[]; servers: ServerRef[]; vaultPasswords: RefItem[]; role: "admin" | "member" | "viewer" }
 
-export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, inventories, vaultPasswords, role }: Props) {
+export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, inventories, servers, vaultPasswords, role }: Props) {
   const canWrite = role !== "viewer";
   const [executions, setExecutions] = useState<ExecutionItem[]>(initialExecutions);
   const [total, setTotal] = useState(initialTotal);
@@ -33,7 +34,7 @@ export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, i
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const [form, setForm] = useState({ playbookId: "", inventoryId: "", dryRun: false, tags: "", limitHosts: "", vaultPasswordId: "" });
+  const [form, setForm] = useState({ playbookId: "", targetMode: "inventory" as "inventory" | "server", inventoryId: "", serverId: "", dryRun: false, tags: "", limitHosts: "", vaultPasswordId: "" });
   const [extraVars, setExtraVars] = useState<{ key: string; value: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
@@ -45,11 +46,14 @@ export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, i
   const [dateFilter, setDateFilter] = useState("");
 
   async function handleRun() {
+    const target = form.targetMode === "inventory"
+      ? { inventoryId: form.inventoryId }
+      : { serverId: form.serverId };
     setLoading(true);
     const res = await fetch("/api/executions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ playbookId: form.playbookId, inventoryId: form.inventoryId, options: { dryRun: form.dryRun, tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [], limitHosts: form.limitHosts || undefined, extraVars: Object.fromEntries(extraVars.filter(v => v.key.trim()).map(v => [v.key.trim(), v.value])), vaultPasswordId: form.vaultPasswordId || undefined } }),
+      body: JSON.stringify({ playbookId: form.playbookId, ...target, options: { dryRun: form.dryRun, tags: form.tags ? form.tags.split(",").map(t => t.trim()).filter(Boolean) : [], limitHosts: form.limitHosts || undefined, extraVars: Object.fromEntries(extraVars.filter(v => v.key.trim()).map(v => [v.key.trim(), v.value])), vaultPasswordId: form.vaultPasswordId || undefined } }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -88,9 +92,12 @@ export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, i
   }
 
   function handleRerun(exec: ExecutionItem) {
+    const targetServerId = exec.options?.targetServerId ?? "";
     setForm({
       playbookId: exec.playbook?.id ?? "",
+      targetMode: targetServerId ? "server" : "inventory",
       inventoryId: exec.inventory?.id ?? "",
+      serverId: targetServerId,
       dryRun: exec.options?.dryRun ?? false,
       tags: exec.options?.tags?.join(", ") ?? "",
       limitHosts: exec.options?.limitHosts ?? "",
@@ -113,7 +120,8 @@ export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, i
 
   const filtered = executions.filter(e => {
     const q = search.toLowerCase();
-    const matchText = !q || e.playbook?.name.toLowerCase().includes(q) || e.inventory?.name.toLowerCase().includes(q);
+    const targetServer = e.options?.targetServerId ? servers.find(s => s.id === e.options.targetServerId) : null;
+    const matchText = !q || e.playbook?.name.toLowerCase().includes(q) || e.inventory?.name.toLowerCase().includes(q) || targetServer?.name.toLowerCase().includes(q) || targetServer?.host.toLowerCase().includes(q);
     const matchStatus = !statusFilter || e.status === statusFilter;
     const matchPlaybook = !playbookFilter || e.playbook?.id === playbookFilter;
     const matchDate = (() => {
@@ -173,13 +181,13 @@ export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, i
       </div>
 
       {executions.length === 0 ? (
-        <EmptyState icon={Play} title="No executions yet" description="Run a playbook against an inventory to automate your infrastructure." action={canWrite ? { label: "Run Playbook", onClick: () => setIsRunOpen(true) } : undefined} />
+        <EmptyState icon={Play} title="No executions yet" description="Run a playbook against an inventory or a server to automate your infrastructure." action={canWrite ? { label: "Run Playbook", onClick: () => setIsRunOpen(true) } : undefined} />
       ) : (
         <div className="bg-card border border-border-base rounded-xl overflow-hidden">
           <Table removeWrapper aria-label="Executions" classNames={{ th: "bg-input text-th-secondary !px-3 !text-left", td: "text-th-secondary !px-3 !text-left" }}>
             <TableHeader>
               <TableColumn>PLAYBOOK</TableColumn>
-              <TableColumn>INVENTORY</TableColumn>
+              <TableColumn>TARGET</TableColumn>
               <TableColumn>STATUS</TableColumn>
               <TableColumn>OPTIONS</TableColumn>
               <TableColumn>STARTED</TableColumn>
@@ -194,7 +202,7 @@ export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, i
                 return (
                   <TableRow key={exec.id}>
                     <TableCell className="font-medium">{exec.playbook?.name ?? <span className="text-th-subtle">Deleted</span>}</TableCell>
-                    <TableCell>{exec.inventory?.name ?? <span className="text-th-subtle">Deleted</span>}</TableCell>
+                    <TableCell>{exec.inventory?.name ?? (exec.options?.targetServerId ? servers.find(s => s.id === exec.options.targetServerId)?.name : null) ?? <span className="text-th-subtle">Deleted</span>}</TableCell>
                     <TableCell><StatusBadge status={exec.status} /></TableCell>
                     <TableCell>
                       <div className="flex gap-1 flex-wrap">
@@ -209,7 +217,7 @@ export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, i
                         <Tip content="View logs" placement="bottom">
                           <Button isIconOnly size="sm" variant="light" onPress={() => setViewingId(exec.id)} className="hover:!bg-zinc-500/15 transition-colors"><Eye className="h-3.5 w-3.5" /></Button>
                         </Tip>
-                        {canWrite && exec.playbook && exec.inventory && (
+                        {canWrite && exec.playbook && (exec.inventory || exec.options?.targetServerId) && (
                           <Tip content="Re-run" placement="bottom">
                             <Button isIconOnly size="sm" variant="light" onPress={() => handleRerun(exec)} className="hover:!bg-zinc-500/15 transition-colors">
                               <RotateCcw className="h-3.5 w-3.5" />
@@ -245,7 +253,7 @@ export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, i
       <Modal isOpen={isRunOpen} onClose={() => setIsRunOpen(false)} title="Run Playbook" footer={
         <>
           <Button variant="light" onPress={() => setIsRunOpen(false)}>Cancel</Button>
-          <Button color="success" isLoading={loading} isDisabled={!form.playbookId || !form.inventoryId} startContent={<Play className="h-4 w-4 fill-white" />} onPress={handleRun}>Run</Button>
+          <Button color="success" isLoading={loading} isDisabled={!form.playbookId || (form.targetMode === "inventory" ? !form.inventoryId : !form.serverId)} startContent={<Play className="h-4 w-4 fill-white" />} onPress={handleRun}>Run</Button>
         </>
       }>
         <div className="space-y-4">
@@ -256,12 +264,35 @@ export function ExecutionsClient({ initialExecutions, initialTotal, playbooks, i
               {playbooks.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
+          <div className="grid grid-cols-2 gap-2 rounded-lg bg-input p-1">
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, targetMode: "inventory" }))}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${form.targetMode === "inventory" ? "bg-card text-th-primary shadow-sm" : "text-th-muted hover:text-th-primary"}`}
+            >
+              Inventory
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm(f => ({ ...f, targetMode: "server" }))}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${form.targetMode === "server" ? "bg-card text-th-primary shadow-sm" : "text-th-muted hover:text-th-primary"}`}
+            >
+              Server
+            </button>
+          </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-th-secondary">Inventory *</label>
-            <select value={form.inventoryId} onChange={e => setForm({ ...form, inventoryId: e.target.value })} className="w-full rounded-lg bg-input border border-border-base px-3 py-2 text-sm text-th-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors">
-              <option value="">Select an inventory</option>
-              {inventories.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
+            <label className="text-sm font-medium text-th-secondary">{form.targetMode === "inventory" ? "Inventory *" : "Server *"}</label>
+            {form.targetMode === "inventory" ? (
+              <select value={form.inventoryId} onChange={e => setForm({ ...form, inventoryId: e.target.value })} className="w-full rounded-lg bg-input border border-border-base px-3 py-2 text-sm text-th-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors">
+                <option value="">Select an inventory</option>
+                {inventories.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              </select>
+            ) : (
+              <select value={form.serverId} onChange={e => setForm({ ...form, serverId: e.target.value })} className="w-full rounded-lg bg-input border border-border-base px-3 py-2 text-sm text-th-primary focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-colors">
+                <option value="">Select a server</option>
+                {servers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.host})</option>)}
+              </select>
+            )}
           </div>
           <Field label="Tags (comma-separated)" value={form.tags} onChange={e => setForm({ ...form, tags: e.target.value })} placeholder="deploy, config" />
           <Field label="Limit hosts" value={form.limitHosts} onChange={e => setForm({ ...form, limitHosts: e.target.value })} placeholder="webservers" />

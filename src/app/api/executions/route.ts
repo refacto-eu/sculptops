@@ -10,7 +10,8 @@ import { validateExecutionRefs } from "@/lib/security";
 
 const createExecutionSchema = z.object({
   playbookId: z.string().uuid(),
-  inventoryId: z.string().uuid(),
+  inventoryId: z.string().uuid().optional(),
+  serverId: z.string().uuid().optional(),
   options: z
     .object({
       dryRun: z.boolean().default(false),
@@ -20,6 +21,8 @@ const createExecutionSchema = z.object({
       vaultPasswordId: z.string().uuid().optional(),
     })
     .default({}),
+}).refine((data) => Boolean(data.inventoryId) !== Boolean(data.serverId), {
+  message: "Select either an inventory or a server",
 });
 
 const PAGE_SIZE = 25;
@@ -63,6 +66,7 @@ export async function POST(req: NextRequest) {
   const refsError = await validateExecutionRefs(ctx.org.id, {
     playbookId: parsed.data.playbookId,
     inventoryId: parsed.data.inventoryId,
+    serverId: parsed.data.serverId,
     vaultPasswordId: parsed.data.options.vaultPasswordId,
   });
   if (refsError) return NextResponse.json({ error: refsError }, { status: 404 });
@@ -72,14 +76,16 @@ export async function POST(req: NextRequest) {
     .values({
       organizationId: ctx.org.id,
       playbookId: parsed.data.playbookId,
-      inventoryId: parsed.data.inventoryId,
-      options: parsed.data.options,
+      inventoryId: parsed.data.inventoryId ?? null,
+      options: parsed.data.serverId
+        ? { ...parsed.data.options, targetServerId: parsed.data.serverId }
+        : parsed.data.options,
       status: "pending",
       createdBy: ctx.userId,
     })
     .returning();
 
-  await writeAuditLog({ organizationId: ctx.org.id, userId: ctx.userId, action: "executed", resourceType: "execution", resourceId: execution.id, metadata: { playbookId: parsed.data.playbookId, inventoryId: parsed.data.inventoryId, dryRun: parsed.data.options.dryRun }, ipAddress: getClientIp(req) });
+  await writeAuditLog({ organizationId: ctx.org.id, userId: ctx.userId, action: "executed", resourceType: "execution", resourceId: execution.id, metadata: { playbookId: parsed.data.playbookId, inventoryId: parsed.data.inventoryId, serverId: parsed.data.serverId, dryRun: parsed.data.options.dryRun }, ipAddress: getClientIp(req) });
 
   // Start execution in background (fire and forget)
   import("@/lib/run-execution").then(m => m.runExecution(execution.id)).catch(console.error);

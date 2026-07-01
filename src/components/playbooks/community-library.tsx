@@ -32,6 +32,22 @@ interface PlaybookDetail extends CommunityPlaybook {
   content: string;
 }
 
+function authorLabel(playbook: Pick<CommunityPlaybook, "authorHandle" | "authorName">) {
+  return playbook.authorHandle ?? playbook.authorName;
+}
+
+function authorVerificationLabel(playbook: Pick<CommunityPlaybook, "authorType" | "authorVerifiedMethod">) {
+  if (playbook.authorType === "org") return "Organization verified";
+  if (!playbook.authorVerifiedMethod) return "Identity verified";
+  return `Identity verified via ${playbook.authorVerifiedMethod === "github" ? "GitHub" : "GitLab"}`;
+}
+
+function authorLink(playbook: Pick<CommunityPlaybook, "authorUrl" | "authorVerifiedMethod" | "authorHandle">) {
+  if (playbook.authorUrl) return playbook.authorUrl;
+  if (!playbook.authorVerifiedMethod || !playbook.authorHandle) return null;
+  return `https://${playbook.authorVerifiedMethod}.com/${playbook.authorHandle}`;
+}
+
 // ─── Detail modal ─────────────────────────────────────────────────────────────
 
 interface VoteState { likes: number; dislikes: number; userVote: "up" | "down" | null }
@@ -127,21 +143,20 @@ function DetailModal({
             </div>
             {(playbook.authorName || playbook.authorHandle) && (
               <p className="text-xs text-th-subtle mt-0.5 flex items-center gap-1.5">
-                <User className="h-3 w-3 shrink-0" />
-                {playbook.authorUrl
-                  ? <a href={playbook.authorUrl} target="_blank" rel="noopener noreferrer" className={`transition-colors ${playbook.authorType === "org" ? "text-blue-400/80 hover:text-blue-400" : "hover:text-th-muted"}`}>{playbook.authorHandle ?? playbook.authorName}</a>
-                  : <span className={playbook.authorType === "org" ? "text-blue-400/80" : ""}>{playbook.authorHandle ?? playbook.authorName}</span>}
-                {playbook.authorVerifiedMethod && (
-                  <Tip content={`${playbook.authorType === "org" ? "Organization" : "Identity"} verified via ${playbook.authorVerifiedMethod === "github" ? "GitHub" : "GitLab"}`} placement="top">
-                    <a href={playbook.authorUrl ?? `https://${playbook.authorVerifiedMethod}.com/${playbook.authorHandle}`}
-                      target="_blank" rel="noopener noreferrer">
-                      {playbook.authorType === "org"
-                        ? <Building2 className="h-3 w-3 text-blue-400/80 hover:text-blue-400 transition-colors" />
-                        : <CircleCheck className="h-3 w-3 text-blue-400/80 hover:text-blue-400 transition-colors" />
-                      }
-                    </a>
+                {playbook.verified || playbook.authorVerifiedMethod ? (
+                  <Tip content={authorVerificationLabel(playbook)} placement="top">
+                    {playbook.authorType === "org"
+                      ? <Building2 className="h-3 w-3 shrink-0 cursor-default text-blue-400/80" />
+                      : <CircleCheck className="h-3 w-3 shrink-0 cursor-default text-blue-400/80" />}
                   </Tip>
+                ) : (
+                  playbook.authorType === "org"
+                    ? <Building2 className="h-3 w-3 shrink-0 text-blue-400/80" />
+                    : <User className="h-3 w-3 shrink-0" />
                 )}
+                {authorLink(playbook)
+                  ? <a href={authorLink(playbook)!} target="_blank" rel="noopener noreferrer" className={`transition-colors ${playbook.authorType === "org" ? "text-blue-400/80 hover:text-blue-400" : "hover:text-th-muted"}`}>{authorLabel(playbook)}</a>
+                  : <span className={playbook.authorType === "org" ? "text-blue-400/80" : ""}>{authorLabel(playbook)}</span>}
               </p>
             )}
           </div>
@@ -423,20 +438,20 @@ export function CommunityLibrary({ role, data, params }: Props) {
                 </div>
                 {(pb.authorName || pb.authorHandle) && (
                   <div className="flex items-center gap-1.5 text-xs text-th-subtle">
-                    <User className="h-3 w-3 shrink-0" />
-                    <span className={`truncate ${pb.authorType === "org" ? "text-blue-400/80" : ""}`}>{pb.authorHandle ?? pb.authorName}</span>
-                    {pb.authorVerifiedMethod && (
-                      <Tip content={`${pb.authorType === "org" ? "Organization" : "Identity"} verified via ${pb.authorVerifiedMethod === "github" ? "GitHub" : "GitLab"}`} placement="top">
-                        <a href={pb.authorUrl ?? `https://${pb.authorVerifiedMethod}.com/${pb.authorHandle}`}
-                          target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}>
-                          {pb.authorType === "org"
-                            ? <Building2 className="h-3 w-3 text-blue-400/80 hover:text-blue-400 transition-colors shrink-0" />
-                            : <CircleCheck className="h-3 w-3 text-blue-400/80 hover:text-blue-400 transition-colors shrink-0" />
-                          }
-                        </a>
+                    {pb.verified || pb.authorVerifiedMethod ? (
+                      <Tip content={authorVerificationLabel(pb)} placement="top">
+                        {pb.authorType === "org"
+                          ? <Building2 className="h-3 w-3 shrink-0 cursor-default text-blue-400/80" />
+                          : <CircleCheck className="h-3 w-3 shrink-0 cursor-default text-blue-400/80" />}
                       </Tip>
+                    ) : (
+                      pb.authorType === "org"
+                        ? <Building2 className="h-3 w-3 shrink-0 text-blue-400/80" />
+                        : <User className="h-3 w-3 shrink-0" />
                     )}
+                    {authorLink(pb)
+                      ? <a href={authorLink(pb)!} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className={`truncate transition-colors ${pb.authorType === "org" ? "text-blue-400/80 hover:text-blue-400" : "hover:text-th-muted"}`}>{authorLabel(pb)}</a>
+                      : <span className={`truncate ${pb.authorType === "org" ? "text-blue-400/80" : ""}`}>{authorLabel(pb)}</span>}
                   </div>
                 )}
                 <div className="flex gap-2 flex-wrap">

@@ -10,6 +10,7 @@ type NullableId = string | null | undefined;
 export interface ExecutionRefs {
   playbookId?: NullableId;
   inventoryId?: NullableId;
+  serverId?: NullableId;
   vaultPasswordId?: NullableId;
 }
 
@@ -40,6 +41,9 @@ export async function validateExecutionRefs(orgId: string, refs: ExecutionRefs):
 
   const inventoryErr = await requireOwnedIds(orgId, [refs.inventoryId], inventories, "Inventory");
   if (inventoryErr) return inventoryErr;
+
+  const serverErr = await requireOwnedIds(orgId, [refs.serverId], servers, "Server");
+  if (serverErr) return serverErr;
 
   const vaultErr = await requireOwnedIds(orgId, [refs.vaultPasswordId], vaultPasswords, "Vault password");
   if (vaultErr) return vaultErr;
