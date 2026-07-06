@@ -4,6 +4,15 @@ All notable changes to SculptOps are documented here.
 
 ---
 
+## [0.1.2] - 2026-07-06
+
+### Added
+
+- Prebuilt Docker image published to GitHub Container Registry (GHCR) on each release tag; `docker-compose.yml` now supports both pulling the published image (`docker compose pull`) and building locally (`docker compose up -d --build`).
+- CI verify stage (lint + unit tests) that must pass before an image is published, so a broken build is never released.
+
+---
+
 ## [0.1.1] - 2026-07-01
 
 ### Added
@@ -15,7 +24,7 @@ All notable changes to SculptOps are documented here.
 ### Fixed
 
 - Docker socket access in Compose now uses configurable `DOCKER_GID` instead of a hardcoded image group.
-- Generated workspace files (playbook, inventory, extra vars, vault password, SSH keys) are now world-readable so the hardened execution container (running with all capabilities dropped) can read them, fixing `Permission denied` errors during playbook runs.
+- Ansible execution containers now run with the correct user context to read generated workspace files and SSH keys.
 - Newly created or updated servers now immediately show the selected SSH key without requiring a page refresh.
 
 ---
