@@ -99,6 +99,13 @@
       "when": 1781076600000,
       "tag": "0013_hash_invite_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1783900800000,
+      "tag": "0014_playbook_requirements",
+      "breakpoints": true
     }
   ]
 }

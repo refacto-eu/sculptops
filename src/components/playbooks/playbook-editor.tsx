@@ -25,6 +25,7 @@ import {
   GitBranch,
   RefreshCw,
   Pencil,
+  Boxes,
 } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
@@ -68,6 +69,10 @@ export function PlaybookEditor({ playbook, versions, inventories, servers, vault
   const [editingName, setEditingName] = useState(false);
   const [nameInput,   setNameInput]   = useState(playbook.name);
   const [content, setContent] = useState(playbook.content);
+  const [requirements, setRequirements] = useState(playbook.requirements ?? "");
+  const [isReqOpen, setIsReqOpen] = useState(false);
+  const [reqSaving, setReqSaving] = useState(false);
+  const hasRequirements = !!requirements.trim();
   const [tags, setTags] = useState<string[]>(playbook.tags ?? []);
   const [tagInput, setTagInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -187,6 +192,17 @@ export function PlaybookEditor({ playbook, versions, inventories, servers, vault
     setGitSaving(false);
   }
 
+  async function handleRequirementsSave() {
+    setReqSaving(true);
+    const res = await fetch(`/api/playbooks/${playbook.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requirements: requirements.trim() || null }),
+    });
+    if (res.ok) setIsReqOpen(false);
+    setReqSaving(false);
+  }
+
   async function handleSync() {
     setSyncing(true);
     setSyncResult(null);
@@ -274,6 +290,15 @@ export function PlaybookEditor({ playbook, versions, inventories, servers, vault
         </div>
 
         <div className="ml-auto flex items-center gap-2 shrink-0">
+          <Button
+            size="sm"
+            variant="flat"
+            startContent={<Boxes className="h-3.5 w-3.5" />}
+            color={hasRequirements ? "success" : "default"}
+            onPress={() => setIsReqOpen(true)}
+          >
+            Dependencies
+          </Button>
           <Button
             size="sm"
             variant="flat"
@@ -368,6 +393,54 @@ export function PlaybookEditor({ playbook, versions, inventories, servers, vault
           }}
         />
       </div>
+
+      {/* Dependencies (Galaxy roles & collections) modal */}
+      <UiModal
+        isOpen={isReqOpen}
+        onClose={() => setIsReqOpen(false)}
+        title="Dependencies — roles & collections"
+        size="2xl"
+        footer={
+          <>
+            <Button variant="light" onPress={() => setIsReqOpen(false)}>Cancel</Button>
+            <Button color="success" isLoading={reqSaving} onPress={handleRequirementsSave}>Save</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-th-muted">
+            Ansible Galaxy <code className="bg-input px-1 rounded">requirements.yml</code>. Roles and collections
+            are installed with <code className="bg-input px-1 rounded">ansible-galaxy install</code> before each run.
+            Leave empty for none.
+          </p>
+          <div className="h-[45vh] rounded-lg overflow-hidden border border-border-base">
+            <MonacoEditor
+              height="100%"
+              defaultLanguage="yaml"
+              theme="vs-dark"
+              value={requirements}
+              onChange={(val) => setRequirements(val ?? "")}
+              options={{
+                fontSize: 13,
+                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                minimap: { enabled: false },
+                lineNumbers: "on",
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                tabSize: 2,
+                insertSpaces: true,
+              }}
+            />
+          </div>
+          <p className="text-xs text-th-subtle">
+            Example:
+            <br />
+            <code className="bg-input px-1 rounded">roles:</code> — <code className="bg-input px-1 rounded">name: geerlingguy.docker</code>
+            {" · "}
+            <code className="bg-input px-1 rounded">collections:</code> — <code className="bg-input px-1 rounded">name: community.general</code>
+          </p>
+        </div>
+      </UiModal>
 
       {/* Git settings modal */}
       <UiModal

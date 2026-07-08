@@ -14,6 +14,7 @@ const updatePlaybookSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().optional().nullable(),
   content: z.string().optional(),
+  requirements: z.string().nullable().optional(),
   tags: z.array(z.string()).optional(),
   gitRepo: z.string().url().nullable().optional(),
   gitBranch: z.string().max(100).nullable().optional(),

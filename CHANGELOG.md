@@ -4,6 +4,14 @@ All notable changes to SculptOps are documented here.
 
 ---
 
+## [0.1.3] - 2026-07-08
+
+### Added
+
+- Ansible **roles and collections** support: each playbook can carry a `requirements.yml` (Galaxy roles + collections), installed with `ansible-galaxy install` before the run. New "Dependencies" editor in the playbook editor.
+
+---
+
 ## [0.1.2] - 2026-07-06
 
 ### Added

@@ -19,6 +19,7 @@ export const playbooks = pgTable("playbooks", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   content: text("content").notNull().default("---\n- hosts: all\n  tasks: []\n"),
+  requirements: text("requirements"),
   tags: text("tags").array().default([]),
   createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
   gitRepo: text("git_repo"),

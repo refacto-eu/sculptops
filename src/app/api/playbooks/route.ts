@@ -12,6 +12,7 @@ const createPlaybookSchema = z.object({
   name:                z.string().min(1).max(1024),
   description:         z.string().optional(),
   content:             z.string().default("---\n- hosts: all\n  tasks: []\n"),
+  requirements:        z.string().optional(),
   tags:                z.array(z.string().max(256)).max(30).default([]),
   communitySourceId:   z.string().uuid().optional(),
   communitySourceName: z.string().max(255).optional(),

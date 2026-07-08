@@ -99,6 +99,10 @@ export async function executePlaybook(
     await writeFile(playbookPath, ctx.playbook.content, { mode: 0o644 });
     await writeFile(inventoryPath, buildInventoryContent(ctx), { mode: 0o644 });
 
+    if (ctx.playbook.requirements?.trim()) {
+      await writeFile(join(workDir, "requirements.yml"), ctx.playbook.requirements, { mode: 0o644 });
+    }
+
     for (const key of ctx.sshKeys) {
       const keyPath = join(sshKeyDir, `${key.id}.pem`);
       await writeFile(keyPath, normalizePrivateKey(decrypt(key.encryptedPrivateKey, key.iv, key.authTag)), { mode: 0o644 });
@@ -119,6 +123,8 @@ export async function executePlaybook(
       "apk add --no-cache openssh-client -q 2>/dev/null",
       "mkdir -p /tmp/keys",
       "cp /workspace/keys/*.pem /tmp/keys/ 2>/dev/null && chmod 600 /tmp/keys/*.pem || true",
+      "mkdir -p /tmp/ansible/roles /tmp/ansible/collections",
+      "if [ -f /workspace/requirements.yml ]; then ansible-galaxy install -r /workspace/requirements.yml || exit 1; fi",
       'exec "$@"',
     ].join("\n");
     await writeFile(join(workDir, "run.sh"), setupScript, { mode: 0o755 });
@@ -171,6 +177,8 @@ export async function executePlaybook(
       `--cpus=${maxCpus}`,
       `--pids-limit=${pidsLimit}`,
       "--env", `ANSIBLE_HOST_KEY_CHECKING=${hostKeyChecking}`,
+      "--env", "ANSIBLE_ROLES_PATH=/tmp/ansible/roles",
+      "--env", "ANSIBLE_COLLECTIONS_PATH=/tmp/ansible/collections",
       "--entrypoint", "/bin/sh",
       dockerImage,
       "/workspace/run.sh",
